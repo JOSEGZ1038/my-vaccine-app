@@ -5,7 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:my_vaccine_app/config/constants/environment.dart';
 
-final userImageProvider = StateNotifierProvider<UserImageNotifier, File?>((ref) {
+final userImageProvider =
+    StateNotifierProvider<UserImageNotifier, File?>((ref) {
   return UserImageNotifier();
 });
 
@@ -13,17 +14,20 @@ class UserImageNotifier extends StateNotifier<File?> {
   UserImageNotifier() : super(null);
 
   final ImagePicker _picker = ImagePicker();
-final dio = Dio(
-    BaseOptions(
-      baseUrl: Environment.apiUrl,
-    )
-  );
-  Future<void> pickImage(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(source: source);
-    if (pickedFile != null) {
-      state = File(pickedFile.path);
-    }
+  final dio = Dio(BaseOptions(
+    baseUrl: Environment.apiUrl,
+  ));
+
+  Future<bool> pickImage(ImageSource source) async {
+    final pickedFile =
+        await _picker.pickImage(source: source, imageQuality: 80);
+    if (pickedFile == null) return false;
+    state = File(pickedFile.path);
+    return true;
   }
+
+  /// Limpia la imagen local (se usa al cerrar sesión)
+  void clear() => state = null;
 
   Future<void> uploadImage(String token) async {
     if (state == null) return;

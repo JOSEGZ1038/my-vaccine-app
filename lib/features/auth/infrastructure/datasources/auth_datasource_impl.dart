@@ -11,14 +11,10 @@ import 'package:my_vaccine_app/features/auth/infrastructure/errors/auth_errors.d
 import 'package:my_vaccine_app/features/auth/infrastructure/mappers/user_mapper.dart';
 import 'package:my_vaccine_app/features/shared/infrastructure/services/key_value_storage_service.dart';
 
-
 class AuthDataSourceImpl extends AuthDataSource {
-
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: Environment.apiUrl,
-    )
-  );
+  final dio = Dio(BaseOptions(
+    baseUrl: Environment.apiUrl,
+  ));
 
   @override
   Future<UserPhotoResult> login(String email, String password) async {
@@ -26,16 +22,21 @@ class AuthDataSourceImpl extends AuthDataSource {
       final response = dio.post('/api/auth/login',
           data: {'username': email, 'password': password});
       final responseFull = (await response).data;
-      final userInfo= await getUserInfoAuth(responseFull['token']);
+      final userInfo = await getUserInfoAuth(responseFull['token']);
       final combinedUserInfo = {
-       "token": responseFull['token'],
-       "expiration": responseFull['expiration'],
-        ...userInfo?.toJson() ?? {}, 
+        "token": responseFull['token'],
+        "expiration": responseFull['expiration'],
+        ...userInfo?.toJson() ?? {},
       };
-      final user = UserInfo.fromJson({...combinedUserInfo,"token": responseFull['token'], "expiration": responseFull['expiration']});
+      final user = UserInfo.fromJson({
+        ...combinedUserInfo,
+        "token": responseFull['token'],
+        "expiration": responseFull['expiration']
+      });
       final userPhotoProfile = await getUserPhotoProfile(user.token ?? '');
 
-      return UserPhotoResult(user: user, photo: userPhotoProfile);    } on DioException catch (e) {
+      return UserPhotoResult(user: user, photo: userPhotoProfile);
+    } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         throw CustomError(
             e.response?.data['message'] ?? 'Credenciales incorrectas');
@@ -51,34 +52,39 @@ class AuthDataSourceImpl extends AuthDataSource {
 
   @override
   Future register(RegisterUserRequest registerUserRequest) async {
-    final url = '/api/Auth/register';
     try {
-      final response = await dio.post(
-        url,
-        options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            'accept': '*/*',
-          },
-        ),
+      await dio.post(
+        '/api/Auth/register',
         data: registerUserRequest.toJson(),
       );
+    } on DioException catch (e) {
+      final data = e.response?.data;
 
-      
-    } on DioError catch (e) {
-      throw Exception('Failed to register user: ${e.response?.data ?? e.message}');
+      // Errores de Identity: { "isSuccess": false, "errors": ["..."] }
+      if (data is Map &&
+          data['errors'] is List &&
+          (data['errors'] as List).isNotEmpty) {
+        throw CustomError((data['errors'] as List).join('\n'));
+      }
+      // Errores de validación de ASP.NET: { "errors": { "Campo": ["..."] } }
+      if (data is Map && data['errors'] is Map) {
+        final messages =
+            (data['errors'] as Map).values.expand((v) => v as List).join('\n');
+        throw CustomError(messages);
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        throw CustomError('No se pudo conectar con el servidor');
+      }
+      throw CustomError('Error al registrar el usuario');
     }
   }
 
-
   @override
-  Future<UserInfo> checkAuthStatus( String token ) async {
+  Future<UserInfo> checkAuthStatus(String token) async {
     try {
-      final response = dio.post('/api/auth/refresh-token', options: Options(
-        headers: {
-          'Authorization': 'Bearer $token'
-        }
-      ));
+      final response = dio.post('/api/auth/refresh-token',
+          options: Options(headers: {'Authorization': 'Bearer $token'}));
       final responseFull = (await response).data;
       final user = UserInfo.fromJson(responseFull);
       return user;
@@ -97,13 +103,10 @@ class AuthDataSourceImpl extends AuthDataSource {
   }
 
   @override
-  Future<UserInfo?> getUserInfoAuth(String token) async{
+  Future<UserInfo?> getUserInfoAuth(String token) async {
     try {
-      final response = dio.get('/api/auth/user-info', options: Options(
-        headers: {
-          'Authorization': 'Bearer $token'
-        }
-      ));
+      final response = dio.get('/api/auth/user-info',
+          options: Options(headers: {'Authorization': 'Bearer $token'}));
       final responseFull = (await response).data;
       final user = UserInfo.fromJson(responseFull);
       return user;
@@ -122,22 +125,23 @@ class AuthDataSourceImpl extends AuthDataSource {
   }
 
   @override
-   Future<Image?> getUserPhotoProfile(String token) async {
+  Future<Image?> getUserPhotoProfile(String token) async {
     try {
       if (token == null) throw Exception("Token is null");
 
-      final response = await dio.get('/api/auth/get-user-photo-profile',
+      final response = await dio.get(
+        '/api/auth/get-user-photo-profile',
         options: Options(
           headers: {'Authorization': 'Bearer $token'},
-          responseType: ResponseType.bytes, // Importante para obtener la imagen como bytes
+          responseType: ResponseType
+              .bytes, // Importante para obtener la imagen como bytes
         ),
       );
 
-  
-
       if (response.statusCode == 200) {
         final bytes = response.data as List<int>;
-        return Image.memory(Uint8List.fromList(bytes)); // Convertir bytes a widget de imagen
+        return Image.memory(
+            Uint8List.fromList(bytes)); // Convertir bytes a widget de imagen
       } else {
         throw Exception('Failed to load user photo profile');
       }

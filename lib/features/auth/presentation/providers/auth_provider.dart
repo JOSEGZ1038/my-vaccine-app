@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_vaccine_app/features/auth/domain/entities/register_user_request/register_user_request.dart';
-import 'package:my_vaccine_app/features/auth/domain/entities/user.dart';
 import 'package:my_vaccine_app/features/auth/domain/entities/user_info/user_info.dart';
 import 'package:my_vaccine_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:my_vaccine_app/features/auth/infrastructure/errors/auth_errors.dart';
@@ -35,9 +34,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       response = await authRepository.login(email, password);
 
       if (response.user != null) {
-        _setLoggedUser(response?.user ?? UserInfo());
+        _setLoggedUser(response.user!);
       }
-      // final userPhotoProfile = await authRepository.getUserPhotoProfile(response.user?.token??'' );
       _setuserProfilePhoto(response.user ?? UserInfo(), response.photo);
     } on CustomError catch (e) {
       logout(e.message);
@@ -45,16 +43,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       logout('Error no controlado');
     }
     return response;
-
-    // final user = await authRepository.login(email, password);
-    // state =state.copyWith(user: user, authStatus: AuthStatus.authenticated)
   }
 
-  Future registerUser(RegisterUserRequest registerUserRequest) async {
+  /// Devuelve null si el registro fue exitoso, o el mensaje de error.
+  Future<String?> registerUser(RegisterUserRequest registerUserRequest) async {
     try {
-      final user = await authRepository.register(registerUserRequest);
-      _setLoggedUser(user);
-    } catch (e) {}
+      await authRepository.register(registerUserRequest);
+      return null;
+    } on CustomError catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Error no controlado';
+    }
   }
 
   void checkAuthStatus() async {
@@ -63,7 +63,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       final user = await authRepository.checkAuthStatus(token);
-      _setLoggedUserInfo(user);
+      final photo = await authRepository.getUserPhotoProfile(token);
+
+      await keyValueStorageService.setKeyValue<String>(
+          'userInfo', user.toString());
+
+      state = state.copyWith(
+        user: user,
+        token: token,
+        authStatus: AuthStatus.authenticated,
+        userPhotoProfile: photo,
+      );
     } catch (e) {
       logout();
     }
@@ -73,22 +83,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await keyValueStorageService.setKeyValue<String>('token', user.token ?? '');
     await keyValueStorageService.setKeyValue<String>(
         'userInfo', user.toString());
-
-    // state = state.copyWith(
-    //   user: user,
-    //   authStatus: AuthStatus.authenticated,
-    //   errorMessage: '',
-    // );
-  }
-
-  void _setLoggedUserInfo(UserInfo user) async {
-    await keyValueStorageService.setKeyValue<String>(
-        'userInfo', user.toString());
-
-    state = state.copyWith(
-      user: user,
-      authStatus: AuthStatus.authenticated,
-    );
   }
 
   void _setuserProfilePhoto(UserInfo user, Image? userPhotoProfile) async {
@@ -103,10 +97,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout([String? errorMessage]) async {
     await keyValueStorageService.removeKey('token');
 
-    state = state.copyWith(
-        authStatus: AuthStatus.notAuthenticated,
-        user: null,
-        errorMessage: errorMessage);
+    state = AuthState(
+      authStatus: AuthStatus.notAuthenticated,
+      errorMessage: errorMessage ?? '',
+    );
   }
 }
 

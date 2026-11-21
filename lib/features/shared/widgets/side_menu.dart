@@ -26,8 +26,8 @@ class SideMenuState extends ConsumerState<SideMenu> {
     final authState = ref.watch(authProvider);
     final userImage = ref.watch(userImageProvider);
 
-    final profileImage= userImage != null
-        ? FileImage(userImage ) as ImageProvider
+    final profileImage = userImage != null
+        ? FileImage(userImage) as ImageProvider
         : authState.userPhotoProfile?.image;
 
     return NavigationDrawer(
@@ -49,7 +49,7 @@ class SideMenuState extends ConsumerState<SideMenu> {
           children: [
             CircleAvatar(
               radius: 100,
-             backgroundImage: profileImage != null
+              backgroundImage: profileImage != null
                   ? profileImage as ImageProvider
                   : AssetImage('assets/images/no-image.jpg') as ImageProvider,
             ),
@@ -57,10 +57,25 @@ class SideMenuState extends ConsumerState<SideMenu> {
               bottom: 0,
               right: 0,
               child: IconButton(
-                icon: Icon(Icons.edit),
+                icon: const Icon(Icons.edit),
                 onPressed: () async {
-                  await _showImageSourceActionSheet(context);
-                  await ref.read(userImageProvider.notifier).uploadImage(authState.token ?? '');
+                  final picked = await _showImageSourceActionSheet(context);
+                  if (!picked) return; // el usuario canceló
+                  try {
+                    await ref
+                        .read(userImageProvider.notifier)
+                        .uploadImage(authState.token ?? '');
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Foto de perfil actualizada')),
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No se pudo subir la foto')),
+                    );
+                  }
                 },
               ),
             ),
@@ -104,7 +119,8 @@ class SideMenuState extends ConsumerState<SideMenu> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: CustomFilledButton(
               onPressed: () {
-                ref.read(authProvider.notifier).logout(null);
+                ref.read(userImageProvider.notifier).clear();
+                ref.read(authProvider.notifier).logout();
               },
               text: 'Cerrar sesión'),
         ),
@@ -112,7 +128,7 @@ class SideMenuState extends ConsumerState<SideMenu> {
     );
   }
 
-  Future<void> _showImageSourceActionSheet(BuildContext context) async {
+  Future<bool> _showImageSourceActionSheet(BuildContext context) async {
     final result = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
@@ -120,13 +136,13 @@ class SideMenuState extends ConsumerState<SideMenu> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Icons.camera),
-              title: Text('Cámara'),
+              leading: const Icon(Icons.camera),
+              title: const Text('Cámara'),
               onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
             ListTile(
-              leading: Icon(Icons.photo_album),
-              title: Text('Galería'),
+              leading: const Icon(Icons.photo_album),
+              title: const Text('Galería'),
               onTap: () => Navigator.of(context).pop(ImageSource.gallery),
             ),
           ],
@@ -134,8 +150,7 @@ class SideMenuState extends ConsumerState<SideMenu> {
       ),
     );
 
-    if (result != null) {
-      await ref.read(userImageProvider.notifier).pickImage(result);
-    }
+    if (result == null) return false;
+    return await ref.read(userImageProvider.notifier).pickImage(result);
   }
 }

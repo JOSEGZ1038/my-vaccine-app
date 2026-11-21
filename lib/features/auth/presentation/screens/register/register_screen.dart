@@ -42,7 +42,8 @@ class RegisterScreen extends StatelessWidget {
                     const Spacer(flex: 1),
                     Text(
                       'Crear cuenta',
-                      style: textStyles.titleLarge?.copyWith(color: Colors.white),
+                      style:
+                          textStyles.titleLarge?.copyWith(color: Colors.white),
                     ),
                     const Spacer(flex: 2),
                   ],
@@ -52,7 +53,8 @@ class RegisterScreen extends StatelessWidget {
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: scaffoldBackgroundColor,
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(100)),
+                    borderRadius:
+                        const BorderRadius.only(topLeft: Radius.circular(100)),
                   ),
                   child: const _RegisterForm(),
                 ),
@@ -70,7 +72,8 @@ class _RegisterForm extends ConsumerWidget {
 
   void showSnackbar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -95,44 +98,66 @@ class _RegisterForm extends ConsumerWidget {
           CustomTextFormField(
             label: 'Nombres',
             keyboardType: TextInputType.name,
-            onChanged: ref.read(registrationFormProvider.notifier).onFirstNameChanged,
-            errorMessage: registrationForm.isFormPosted ? registrationForm.firstName.errorMessage : null,
+            onChanged:
+                ref.read(registrationFormProvider.notifier).onFirstNameChanged,
+            errorMessage: registrationForm.isFormPosted
+                ? registrationForm.firstName.errorMessage
+                : null,
           ),
           const SizedBox(height: 30),
           CustomTextFormField(
             label: 'Apellidos',
             keyboardType: TextInputType.name,
-            onChanged: ref.read(registrationFormProvider.notifier).onLastNameChanged,
-            errorMessage: registrationForm.isFormPosted ? registrationForm.lastName.errorMessage : null,
+            onChanged:
+                ref.read(registrationFormProvider.notifier).onLastNameChanged,
+            errorMessage: registrationForm.isFormPosted
+                ? registrationForm.lastName.errorMessage
+                : null,
           ),
           const SizedBox(height: 30),
           CustomTextFormField(
             label: 'Correo',
             keyboardType: TextInputType.emailAddress,
-            onChanged: ref.read(registrationFormProvider.notifier).onEmailChanged,
-            errorMessage: registrationForm.isFormPosted ? registrationForm.email.errorMessage : null,
+            onChanged:
+                ref.read(registrationFormProvider.notifier).onEmailChanged,
+            errorMessage: registrationForm.isFormPosted
+                ? registrationForm.email.errorMessage
+                : null,
           ),
           const SizedBox(height: 30),
           CustomTextFormField(
             label: 'Contraseña',
             obscureText: true,
-            onChanged: ref.read(registrationFormProvider.notifier).onPasswordChanged,
-            onFieldSubmitted: (_) => ref.read(registrationFormProvider.notifier).onFormSubmit(),
-            errorMessage: registrationForm.isFormPosted ? registrationForm.password.errorMessage : null,
+            onChanged:
+                ref.read(registrationFormProvider.notifier).onPasswordChanged,
+            onFieldSubmitted: (_) =>
+                ref.read(registrationFormProvider.notifier).onFormSubmit(),
+            errorMessage: registrationForm.isFormPosted
+                ? registrationForm.password.errorMessage
+                : null,
           ),
           const SizedBox(height: 30),
           CustomTextFormField(
             label: 'Repita la contraseña',
             obscureText: true,
-            onChanged: ref.read(registrationFormProvider.notifier).onConfirmPasswordChanged,
-            onFieldSubmitted: (_) => ref.read(registrationFormProvider.notifier).onFormSubmit(),
-            errorMessage: registrationForm.isFormPosted ? registrationForm.confirmPassword.errorMessage : null,
+            onChanged: ref
+                .read(registrationFormProvider.notifier)
+                .onConfirmPasswordChanged,
+            onFieldSubmitted: (_) =>
+                ref.read(registrationFormProvider.notifier).onFormSubmit(),
+            errorMessage: registrationForm.isFormPosted
+                ? registrationForm.confirmPassword.errorMessage
+                : null,
           ),
           const SizedBox(height: 30),
           CustomDatePickerFormField(
             label: 'Fecha de nacimiento',
-            onDateChanged: (date) => ref.read(registrationFormProvider.notifier).onBirthdateChanged(date),
-            errorMessage: registrationForm.isFormPosted ? registrationForm.birthdate.errorMessage : null,
+            onDateChanged: (date) => ref
+                .read(registrationFormProvider.notifier)
+                .onBirthdateChanged(date),
+            errorMessage: registrationForm.isFormPosted
+                ? registrationForm.birthdate.errorMessage
+                : null,
           ),
           const SizedBox(height: 30),
           SizedBox(
@@ -141,7 +166,20 @@ class _RegisterForm extends ConsumerWidget {
             child: CustomFilledButton(
               text: 'Crear',
               buttonColor: secondaryColor,
-              onPressed:  () => ref.read(registrationFormProvider.notifier).onFormSubmit()
+              onPressed: () async {
+                FocusManager.instance.primaryFocus?.unfocus();
+                final error = await ref
+                    .read(registrationFormProvider.notifier)
+                    .onFormSubmit();
+                if (!context.mounted) return;
+
+                if (error != null) {
+                  showSnackbar(context, error);
+                  return;
+                }
+                showSnackbar(context, 'Cuenta creada. Ahora inicia sesión');
+                context.go('/login');
+              },
             ),
           ),
           const SizedBox(height: 30),
